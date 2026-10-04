@@ -5,7 +5,7 @@ Phần phân tích tối đa một trang, không tính output ở phần 5.
 
 **Họ tên / MSSV:** Ngô Kỳ Anh / 2A202602916
 **Repo:** https://github.com/glacerjust/K4-Track02-Day17-NgoKyAnh-2A202602916-Data-Pipeline-Engineering
-**Commit bài nộp:** fbf74549564cf474f0b59b1452db9dd4b07cd131
+**Commit bài nộp:** b382f7df653e8f1da6d482c5cbbce0548841a593
 **AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):** Antigravity IDE (Gemini 3.8 Flash) hỗ trợ phân tích nguyên nhân gốc của 3 lỗi dựa trên hợp đồng dữ liệu, hướng dẫn cú pháp SQL MERGE / LSN guard, cấu hình LOOKBACK_DAYS, cài đặt cache LLM và đối soát checklist nộp bài.
 **Nguồn tham khảo khác (nếu có):** Slide bài giảng K4 Track 02 Day 17 (Data Pipeline Engineering).
 
