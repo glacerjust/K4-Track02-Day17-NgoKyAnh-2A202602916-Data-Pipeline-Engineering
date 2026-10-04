@@ -18,6 +18,7 @@ real model (swap in any provider via .env if you like — the pipeline is the sa
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 
@@ -81,13 +82,34 @@ def live_tickets(con: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
 
 
 def label_tickets(con: duckdb.DuckDBPyConnection, llm: FakeLLM) -> dict:
-    """NAIVE version (shipped): one LLM call per ticket per run, no validation."""
+    """Version with hash-based caching and schema validation/quarantine."""
+    con.execute("""CREATE TABLE IF NOT EXISTS llm_cache (
+        cache_key VARCHAR PRIMARY KEY, raw_response VARCHAR)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS llm_label_quarantine (
+        ticket_id VARCHAR, raw_response VARCHAR, reason VARCHAR,
+        model VARCHAR, prompt_version VARCHAR)""")
+
     rows = []
+    bad_rows = []
     for ticket_id, text in live_tickets(con):
-        raw = llm.complete(PROMPT_TEMPLATE.format(text=text))
-        rows.append((ticket_id, raw, MODEL, PROMPT_VERSION))
+        cache_key = hashlib.sha256(f"{text}|{MODEL}|{PROMPT_VERSION}".encode("utf-8")).hexdigest()
+        cached = con.execute("SELECT raw_response FROM llm_cache WHERE cache_key = ?", [cache_key]).fetchone()
+        if cached:
+            raw = cached[0]
+        else:
+            raw = llm.complete(PROMPT_TEMPLATE.format(text=text))
+            con.execute("INSERT INTO llm_cache VALUES (?, ?)", [cache_key, raw])
+
+        label = parse_label(raw)
+        if label:
+            rows.append((ticket_id, label, MODEL, PROMPT_VERSION))
+        else:
+            bad_rows.append((ticket_id, raw, "invalid_or_off_schema_json", MODEL, PROMPT_VERSION))
+
     con.execute("""CREATE OR REPLACE TABLE gold_ticket_labels (
         ticket_id VARCHAR, label VARCHAR, model VARCHAR, prompt_version VARCHAR)""")
     if rows:
         con.executemany("INSERT INTO gold_ticket_labels VALUES (?, ?, ?, ?)", rows)
+    if bad_rows:
+        con.executemany("INSERT INTO llm_label_quarantine VALUES (?, ?, ?, ?, ?)", bad_rows)
     return {"labeled": len(rows), "calls": llm.calls}
